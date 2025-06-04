@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background font-sans text-white;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading font-bold;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-6 py-3 font-medium rounded-md transition-all duration-300 inline-block;
+  }
+  .btn-primary {
+    @apply bg-primary hover:bg-primary-light text-white shadow-glow-sm hover:shadow-glow-md;
+  }
+  .btn-secondary {
+    @apply bg-transparent border border-primary text-white hover:bg-primary/10;
+  }
+  .card {
+    @apply bg-background-lighter rounded-xl p-6 shadow-md transition-all duration-300;
+  }
+  .grid-overlay {
+    @apply pointer-events-none fixed inset-0 z-10 opacity-10 bg-[url('/grid.svg')] animate-grid-glow;
+  }
+  .tag {
+    @apply inline-block px-3 py-1 rounded-full text-xs font-medium mr-2 mb-2 bg-secondary text-white;
+  }
+  .tag-primary {
+    @apply bg-primary/20 text-primary-light;
+  }
+  .input {
+    @apply w-full px-4 py-3 bg-secondary rounded-md border border-secondary focus:border-primary-light focus:outline-none focus:ring-1 focus:ring-primary-light text-white;
+  }
+  .female-led {
+    @apply border-l-4 border-pink-500;
+  }
+}
