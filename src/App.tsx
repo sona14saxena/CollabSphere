@@ -28,6 +28,7 @@ function App() {
           <Route path="/projects" element={<ProjectFeed />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/women-in-tech" element={<WomenInTech />} />
+          <Route path="/profile/:userId" element={<Profile />} />
           
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />

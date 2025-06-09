@@ -5,6 +5,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { toastStore } from '../components/ui/Toaster';
+import { indianColleges } from '../data/indianColleges';
 
 interface Project {
   id: string;
@@ -27,57 +28,36 @@ const ProjectFeed = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'college' | 'women'>('all');
-  const [collegeFilter, setCollegeFilter] = useState<'myCollege' | 'allColleges'>('myCollege');
-  const [selectedCollege, setSelectedCollege] = useState<string>('');
-  const [availableColleges, setAvailableColleges] = useState<string[]>([]);
+  const [selectedCollege, setSelectedCollege] = useState('');
   const { currentUser } = useAuth();
 
   useEffect(() => {
-    if (currentUser && (currentUser as any).college) {
-      setSelectedCollege((currentUser as any).college);
-    }
-  }, [currentUser]);
-
-  useEffect(() => {
-    fetchAvailableColleges();
-  }, []);
-
-  useEffect(() => {
     fetchProjects();
-  }, [filter, collegeFilter, selectedCollege]);
-
-  const fetchAvailableColleges = async () => {
-    try {
-      const collegesSnapshot = await getDocs(collection(db, 'colleges'));
-      const collegesList = collegesSnapshot.docs.map(doc => doc.id);
-      setAvailableColleges(collegesList);
-    } catch (error) {
-      console.error('Error fetching colleges:', error);
-    }
-  };
+  }, [filter, selectedCollege]);
 
   const fetchProjects = async () => {
     try {
       setLoading(true);
       let projectQuery = collection(db, 'projects');
+      let constraints: any[] = [];
 
       if (filter === 'college') {
-        projectQuery = query(collection(db, 'projects'), where('isCollegeOnly', '==', true));
+        constraints.push(where('isCollegeOnly', '==', true));
       } else if (filter === 'women') {
-        projectQuery = query(collection(db, 'projects'), where('isWomenLed', '==', true));
+        constraints.push(where('isWomenLed', '==', true));
       }
 
-      if (collegeFilter === 'myCollege' && selectedCollege) {
-        projectQuery = query(collection(db, 'projects'), where('college', '==', selectedCollege));
-      } else if (collegeFilter === 'allColleges' && selectedCollege) {
-        projectQuery = query(collection(db, 'projects'), where('college', '==', selectedCollege));
+      if (selectedCollege && selectedCollege !== 'All Colleges') {
+        constraints.push(where('college', '==', selectedCollege));
       }
 
-      const querySnapshot = await getDocs(projectQuery);
+      const q = constraints.length > 0 ? query(projectQuery, ...constraints) : query(projectQuery);
+      const querySnapshot = await getDocs(q);
+      
       const projectData = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      } as Project));
+      })) as Project[];
 
       setProjects(projectData);
     } catch (error) {
@@ -121,6 +101,17 @@ const ProjectFeed = () => {
             />
           </div>
 
+          <select
+            value={selectedCollege}
+            onChange={(e) => setSelectedCollege(e.target.value)}
+            className="input bg-secondary text-white border-gray-700 hover:border-primary-light focus:border-primary-light cursor-pointer"
+          >
+            <option value="">All Colleges</option>
+            {indianColleges.map(college => (
+              <option key={college} value={college}>{college}</option>
+            ))}
+          </select>
+
           <div className="flex space-x-4">
             <button
               onClick={() => setFilter('all')}
@@ -140,32 +131,6 @@ const ProjectFeed = () => {
             >
               Women-Led
             </button>
-            <div className="flex items-center space-x-2">
-              <label className="text-gray-400">College Filter:</label>
-              <select
-                value={collegeFilter}
-                onChange={(e) => setCollegeFilter(e.target.value as 'myCollege' | 'allColleges')}
-                className="input"
-              >
-                <option value="myCollege">My College Only</option>
-                <option value="allColleges">All Colleges</option>
-              </select>
-            </div>
-            {collegeFilter === 'allColleges' && (
-              <div className="flex items-center space-x-2">
-                <label className="text-gray-400">Select College:</label>
-                <select
-                  value={selectedCollege}
-                  onChange={(e) => setSelectedCollege(e.target.value)}
-                  className="input"
-                >
-                  <option value="">All Colleges</option>
-                  {availableColleges.map(college => (
-                    <option key={college} value={college}>{college}</option>
-                  ))}
-                </select>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -185,7 +150,7 @@ const ProjectFeed = () => {
           {filteredProjects.map(project => (
             <div 
               key={project.id} 
-              className={`card hover:shadow-glow-sm ${project.isWomenLed ? 'female-led' : ''}`}
+              className={`card hover:shadow-glow-sm transform hover:-translate-y-1 transition-all duration-300 ${project.isWomenLed ? 'female-led' : ''}`}
             >
               <div className="flex justify-between items-start mb-4">
                 <h2 className="text-xl font-bold">{project.title}</h2>
@@ -219,8 +184,10 @@ const ProjectFeed = () => {
               </div>
 
               <div className="flex justify-between items-center">
-                <div className="text-sm text-gray-500">
-                  By {project.creatorName}
+                <div className="text-sm">
+                  <span className="text-gray-500">By {project.creatorName}</span>
+                  <span className="text-gray-600 mx-2">•</span>
+                  <span className="text-gray-500">{project.college}</span>
                 </div>
                 <Link to={`/projects/${project.id}`} className="text-primary-light hover:underline">
                   View details

@@ -16,27 +16,42 @@
     @apply px-6 py-3 font-medium rounded-md transition-all duration-300 inline-block;
   }
   .btn-primary {
-    @apply bg-primary hover:bg-primary-light text-white shadow-glow-sm hover:shadow-glow-md;
+    @apply bg-primary hover:bg-primary-light text-white shadow-glow-sm hover:shadow-glow-md transform hover:-translate-y-0.5;
   }
   .btn-secondary {
-    @apply bg-transparent border border-primary text-white hover:bg-primary/10;
+    @apply bg-transparent border border-primary text-white hover:bg-primary/10 transform hover:-translate-y-0.5;
   }
   .card {
-    @apply bg-background-lighter rounded-xl p-6 shadow-md transition-all duration-300;
+    @apply bg-background-lighter rounded-xl p-6 shadow-md transition-all duration-300 hover:shadow-glow-sm;
   }
   .grid-overlay {
     @apply pointer-events-none fixed inset-0 z-10 opacity-10 bg-[url('/grid.svg')] animate-grid-glow;
   }
   .tag {
-    @apply inline-block px-3 py-1 rounded-full text-xs font-medium mr-2 mb-2 bg-secondary text-white;
+    @apply inline-block px-3 py-1 rounded-full text-xs font-medium mr-2 mb-2 bg-secondary text-white hover:scale-105 transition-transform duration-200;
   }
   .tag-primary {
     @apply bg-primary/20 text-primary-light;
   }
   .input {
-    @apply w-full px-4 py-3 bg-secondary rounded-md border border-secondary focus:border-primary-light focus:outline-none focus:ring-1 focus:ring-primary-light text-white;
+    @apply w-full px-4 py-3 bg-secondary rounded-md border border-secondary focus:border-primary-light focus:outline-none focus:ring-1 focus:ring-primary-light text-white transition-all duration-200;
   }
   .female-led {
     @apply border-l-4 border-pink-500;
   }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
 }

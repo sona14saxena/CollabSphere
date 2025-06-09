@@ -1,27 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Check, Clock, Users, MessageSquare } from 'lucide-react';
+import { PlusCircle, Check, Clock, Users, MessageSquare, Trash2, Bell } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase/config';
-
-// Task type
-interface Task {
-  id: number;
-  title: string;
-  completed: boolean;
-  projectId: string;
-  assignedTo: string;
-}
+import { toastStore } from '../components/ui/Toaster';
 
 interface Project {
   id: string;
   title: string;
   description: string;
-  role: string;
-  members: number;
-  tasks: number;
-  completedTasks: number;
+  creatorId: string;
+  members: { id: string; name: string; role: string; }[];
+  tasks: { id: number; title: string; completed: boolean; }[];
   applications: number;
   lastActivity: string;
 }
@@ -29,280 +20,209 @@ interface Project {
 const Dashboard = () => {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('projects');
-
-  const [tasks, setTasks] = useState<Task[]>([
-    { id: 1, title: 'Design database schema', completed: true, projectId: '1', assignedTo: currentUser?.displayName || 'You' },
-    { id: 2, title: 'Implement user authentication', completed: true, projectId: '1', assignedTo: currentUser?.displayName || 'You' },
-    { id: 3, title: 'Create wireframes for UI', completed: false, projectId: '1', assignedTo: currentUser?.displayName || 'You' },
-    { id: 4, title: 'Research ML models for study recommendations', completed: false, projectId: '1', assignedTo: 'Alex Chen' },
-    { id: 5, title: 'Collect campus carbon data', completed: true, projectId: '2', assignedTo: 'Sarah Johnson' },
-    { id: 6, title: 'Design dashboard visualizations', completed: false, projectId: '2', assignedTo: currentUser?.displayName || 'You' }
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState([
+    { id: 1, message: 'New application for AI Study Assistant', time: '2h ago' },
+    { id: 2, message: 'Task completed: Design database schema', time: '5h ago' },
   ]);
-
-  const [myProjects, setMyProjects] = useState<Project[]>([]);
-  const [loadingProjects, setLoadingProjects] = useState(false);
-
-  const [projectApplicants, setProjectApplicants] = useState<{ [projectId: string]: any[] }>({});
-  const [loadingApplicants, setLoadingApplicants] = useState<{ [projectId: string]: boolean }>({});
-
-  const [appliedProjects, setAppliedProjects] = useState<(Project & { status: string; appliedDate: string })[]>([]);
-  const [loadingApplications, setLoadingApplications] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
-    if (!currentUser) return;
-
-    const fetchMyProjects = async () => {
-      setLoadingProjects(true);
-      try {
-        const q = query(collection(db, 'projects'), where('creatorId', '==', currentUser.uid));
-        const querySnapshot = await getDocs(q);
-        const projects: Project[] = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          projects.push({
-            id: doc.id,
-            title: data.title || 'Untitled',
-            description: data.description || '',
-            role: 'Project Owner',
-            members: Array.isArray(data.members) ? data.members.length : 0,
-            tasks: Array.isArray(data.tasks) ? data.tasks.length : 0,
-            completedTasks: data.completedTasks || 0,
-            applications: Array.isArray(data.applicants) ? data.applicants.length : 0,
-            lastActivity: data.lastActivity || 'N/A',
-          });
-        });
-        setMyProjects(projects);
-      } catch (error) {
-        console.error('Error fetching projects:', error);
-      } finally {
-        setLoadingProjects(false);
-      }
-    };
-
-    const fetchAppliedProjects = async () => {
-      setLoadingApplications(true);
-      try {
-        const q = query(collection(db, 'applications'), where('applicantId', '==', currentUser.uid));
-        const querySnapshot = await getDocs(q);
-        const applications: (Project & { status: string; appliedDate: string })[] = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          applications.push({
-            id: doc.id,
-            title: data.title || 'Untitled',
-            description: data.description || '',
-            role: 'Applicant',
-            members: Array.isArray(data.members) ? data.members.length : 0,
-            tasks: Array.isArray(data.tasks) ? data.tasks.length : 0,
-            completedTasks: data.completedTasks || 0,
-            applications: Array.isArray(data.applicants) ? data.applicants.length : 0,
-            lastActivity: data.lastActivity || 'N/A',
-            status: data.status || 'Pending',
-            appliedDate: data.appliedDate || 'N/A',
-          });
-        });
-        setAppliedProjects(applications);
-      } catch (error) {
-        console.error('Error fetching applications:', error);
-      } finally {
-        setLoadingApplications(false);
-      }
-    };
-
-    fetchMyProjects();
-    fetchAppliedProjects();
+    fetchUserProjects();
   }, [currentUser]);
 
-  const fetchApplicantsForProject = async (projectId: string) => {
-    setLoadingApplicants(prev => ({ ...prev, [projectId]: true }));
+  const fetchUserProjects = async () => {
+    if (!currentUser) return;
+    
     try {
-      const q = query(collection(db, 'applications'), where('projectId', '==', projectId));
+      setLoading(true);
+      const projectsRef = collection(db, 'projects');
+      const q = query(projectsRef, where('creatorId', '==', currentUser.uid));
       const querySnapshot = await getDocs(q);
-      const applicants = querySnapshot.docs.map(doc => doc.data());
-      setProjectApplicants(prev => ({ ...prev, [projectId]: applicants }));
+      
+      const projectData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Project[];
+      
+      setProjects(projectData);
     } catch (error) {
-      console.error('Error fetching applicants:', error);
+      console.error('Error fetching projects:', error);
+      toastStore.addToast('Failed to load projects', 'error');
     } finally {
-      setLoadingApplicants(prev => ({ ...prev, [projectId]: false }));
+      setLoading(false);
     }
   };
 
-  const toggleTaskCompletion = (taskId: number) => {
-    setTasks(tasks.map(task =>
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
+  const handleDeleteProject = async (projectId: string) => {
+    if (!window.confirm('Are you sure you want to delete this project?')) return;
+    
+    try {
+      await deleteDoc(doc(db, 'projects', projectId));
+      setProjects(projects.filter(p => p.id !== projectId));
+      toastStore.addToast('Project deleted successfully', 'success');
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toastStore.addToast('Failed to delete project', 'error');
+    }
+  };
+
+  const toggleNotifications = () => {
+    setShowNotifications(!showNotifications);
   };
 
   return (
     <div className="py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-        <div className="flex items-center space-x-4">
-          <div>
-            <h1 className="text-3xl font-bold">Dashboard</h1>
-            <p className="text-gray-400 mt-1">Manage your projects and collaborations</p>
-          </div>
-          <button
-            className="relative p-2 rounded-full bg-primary/20 text-primary-light hover:bg-primary/30"
-            title="Notifications"
-            onClick={() => alert('Notification feature coming soon!')}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-5-5.917V5a2 2 0 10-4 0v.083A6 6 0 004 11v3.159c0 .538-.214 1.055-.595 1.436L2 17h5m5 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-            <span className="absolute top-0 right-0 block h-2 w-2 rounded-full ring-2 ring-background bg-red-400"></span>
-          </button>
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-gray-400 mt-1">Manage your projects and collaborations</p>
         </div>
-        <Link to="/post-project" className="btn btn-primary mt-4 md:mt-0">
-          <PlusCircle className="h-5 w-5 mr-2" /> Post a new project
-        </Link>
+        <div className="flex items-center mt-4 md:mt-0">
+          <div className="relative mr-4">
+            <button
+              onClick={toggleNotifications}
+              className="p-2 rounded-full bg-background-lighter hover:bg-secondary transition-colors duration-200"
+            >
+              <Bell className="h-5 w-5 text-primary-light" />
+              <span className="absolute -top-1 -right-1 h-4 w-4 bg-primary rounded-full text-xs flex items-center justify-center">
+                {notifications.length}
+              </span>
+            </button>
+            
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 bg-background-lighter rounded-lg shadow-lg z-50 border border-gray-800 animate-fade-in">
+                <div className="p-4">
+                  <h3 className="text-sm font-medium mb-3">Notifications</h3>
+                  <div className="space-y-3">
+                    {notifications.map(notification => (
+                      <div key={notification.id} className="flex items-start p-2 hover:bg-secondary rounded-lg transition-colors duration-200">
+                        <div className="flex-1">
+                          <p className="text-sm">{notification.message}</p>
+                          <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <Link to="/post-project" className="btn btn-primary">
+            <PlusCircle className="h-5 w-5 mr-2" /> Post a new project
+          </Link>
+        </div>
       </div>
 
       <div className="border-b border-gray-800 mb-6">
         <nav className="-mb-px flex space-x-8">
-          {['projects', 'tasks', 'applications'].map(tab => (
-            <button
-              key={tab}
-              className={`pb-4 px-1 ${
-                activeTab === tab
-                  ? 'border-b-2 border-primary-light text-primary-light font-medium'
-                  : 'text-gray-400 hover:text-gray-300 hover:border-gray-300'
-              }`}
-              onClick={() => setActiveTab(tab)}
-            >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
+          <button
+            className={`pb-4 px-1 transition-colors duration-200 ${
+              activeTab === 'projects'
+                ? 'border-b-2 border-primary-light text-primary-light font-medium'
+                : 'text-gray-400 hover:text-gray-300 hover:border-gray-300'
+            }`}
+            onClick={() => setActiveTab('projects')}
+          >
+            My Projects
+          </button>
+          <button
+            className={`pb-4 px-1 transition-colors duration-200 ${
+              activeTab === 'tasks'
+                ? 'border-b-2 border-primary-light text-primary-light font-medium'
+                : 'text-gray-400 hover:text-gray-300 hover:border-gray-300'
+            }`}
+            onClick={() => setActiveTab('tasks')}
+          >
+            Tasks
+          </button>
+          <button
+            className={`pb-4 px-1 transition-colors duration-200 ${
+              activeTab === 'applications'
+                ? 'border-b-2 border-primary-light text-primary-light font-medium'
+                : 'text-gray-400 hover:text-gray-300 hover:border-gray-300'
+            }`}
+            onClick={() => setActiveTab('applications')}
+          >
+            Applications
+          </button>
         </nav>
       </div>
 
-      {activeTab === 'projects' && (
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-light"></div>
+        </div>
+      ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {loadingProjects ? (
-            <p>Loading projects...</p>
-          ) : myProjects.length === 0 ? (
-            <p>No projects found.</p>
-          ) : (
-            myProjects.map(project => (
+          {projects.map(project => (
             <div 
               key={project.id} 
-              className="card hover:shadow-glow-sm opacity-0 transform translate-y-6 transition-all duration-700 ease-in-out scroll-animate"
-              data-scroll
+              className="card hover:shadow-glow-sm transform hover:-translate-y-1 transition-all duration-300"
             >
-                <div className="flex justify-between items-start mb-4">
-                  <h2 className="text-xl font-bold">{project.title}</h2>
-                  <span className="tag tag-primary">{project.role}</span>
-                </div>
-                <p className="text-gray-400 mb-6">{project.description}</p>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                  <div className="text-center p-3 bg-secondary rounded-lg">
-                    <Users className="h-5 w-5 mx-auto mb-1 text-primary-light" />
-                    <p className="text-sm text-gray-300">Team</p>
-                    <p className="text-lg font-bold">{project.members}</p>
-                  </div>
-                  <div className="text-center p-3 bg-secondary rounded-lg">
-                    <Check className="h-5 w-5 mx-auto mb-1 text-green-500" />
-                    <p className="text-sm text-gray-300">Tasks</p>
-                    <p className="text-lg font-bold">{project.completedTasks}/{project.tasks}</p>
-                  </div>
-                  <div className="text-center p-3 bg-secondary rounded-lg">
-                    <PlusCircle className="h-5 w-5 mx-auto mb-1 text-blue-500" />
-                    <p className="text-sm text-gray-300">Applications</p>
-                    <p className="text-lg font-bold">{project.applications}</p>
-                  </div>
-                  <div className="text-center p-3 bg-secondary rounded-lg">
-                    <Clock className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
-                    <p className="text-sm text-gray-300">Activity</p>
-                    <p className="text-sm">{project.lastActivity}</p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => fetchApplicantsForProject(project.id)}
-                  className="mb-4 text-sm text-primary-light hover:underline"
-                >
-                  View Applicants
-                </button>
-
-                {loadingApplicants[project.id] ? (
-                  <p>Loading applicants...</p>
-                ) : (
-                  projectApplicants[project.id] && projectApplicants[project.id].length > 0 && (
-                    <ul className="mb-6 space-y-2">
-                      {projectApplicants[project.id].map((applicant, index) => (
-                        <li key={index} className="bg-secondary p-3 rounded-md">
-                          <p className="font-semibold">{applicant.applicantName || 'Unnamed Applicant'}</p>
-                          <p className="text-sm text-gray-400">{applicant.applicantEmail || 'No email provided'}</p>
-                          <p className="text-xs text-gray-500">Applied on: {applicant.appliedDate || 'N/A'}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  )
-                )}
-
-                <div className="flex justify-between items-center">
-                  <Link to={`/projects/${project.id}`} className="text-primary-light hover:underline">
+              <div className="flex justify-between items-start mb-4">
+                <h2 className="text-xl font-bold">{project.title}</h2>
+                <div className="flex items-center space-x-2">
+                  <Link 
+                    to={`/projects/${project.id}`}
+                    className="text-primary-light hover:underline"
+                  >
                     View details
                   </Link>
-                  <div className="flex space-x-2">
-                    <button className="p-2 rounded-full bg-primary/20 text-primary-light hover:bg-primary/30">
-                      <MessageSquare className="h-5 w-5" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleDeleteProject(project.id)}
+                    className="p-2 rounded-full hover:bg-red-900/20 text-red-500 transition-colors duration-200"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
                 </div>
               </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {activeTab === 'tasks' && (
-        <div className="card p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold">My Tasks</h2>
-            <button className="btn btn-secondary text-sm py-2">
-              <PlusCircle className="h-4 w-4 mr-2" /> Add task
-            </button>
-          </div>
-          <ul className="space-y-4">
-            {tasks.map(task => (
-              <li key={task.id} className="flex items-center justify-between bg-secondary p-3 rounded-md">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={task.completed}
-                    onChange={() => toggleTaskCompletion(task.id)}
-                    className="mr-3"
-                  />
-                  <span className={`text-sm ${task.completed ? 'line-through text-gray-400' : ''}`}>
-                    {task.title}
-                  </span>
+              
+              <p className="text-gray-400 mb-6">{project.description}</p>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                <div className="text-center p-3 bg-secondary rounded-lg transform hover:scale-105 transition-transform duration-200">
+                  <Users className="h-5 w-5 mx-auto mb-1 text-primary-light" />
+                  <p className="text-sm text-gray-300">Team</p>
+                  <p className="text-lg font-bold">{project.members?.length || 0}</p>
                 </div>
-                <span className="text-xs text-gray-400">Assigned to: {task.assignedTo}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {activeTab === 'applications' && (
-        <div className="card p-6">
-          <h2 className="text-xl font-bold mb-6">Applications</h2>
-          {loadingApplications ? (
-            <p>Loading applications...</p>
-          ) : appliedProjects.length === 0 ? (
-            <p>No applications found.</p>
-          ) : (
-            <ul className="space-y-4">
-              {appliedProjects.map(project => (
-                <li key={project.id} className="bg-secondary p-4 rounded-md">
-                  <h3 className="font-semibold text-lg">{project.title}</h3>
-                  <p className="text-gray-400 text-sm mb-2">{project.description}</p>
-                  <p className="text-xs text-gray-500">Status: {project.status} | Applied on: {project.appliedDate}</p>
-                </li>
-              ))}
-            </ul>
-          )}
+                <div className="text-center p-3 bg-secondary rounded-lg transform hover:scale-105 transition-transform duration-200">
+                  <Check className="h-5 w-5 mx-auto mb-1 text-green-500" />
+                  <p className="text-sm text-gray-300">Tasks</p>
+                  <p className="text-lg font-bold">
+                    {project.tasks?.filter(t => t.completed).length || 0}/{project.tasks?.length || 0}
+                  </p>
+                </div>
+                <div className="text-center p-3 bg-secondary rounded-lg transform hover:scale-105 transition-transform duration-200">
+                  <MessageSquare className="h-5 w-5 mx-auto mb-1 text-blue-500" />
+                  <p className="text-sm text-gray-300">Applications</p>
+                  <p className="text-lg font-bold">{project.applications || 0}</p>
+                </div>
+                <div className="text-center p-3 bg-secondary rounded-lg transform hover:scale-105 transition-transform duration-200">
+                  <Clock className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
+                  <p className="text-sm text-gray-300">Activity</p>
+                  <p className="text-sm">{project.lastActivity || 'No activity'}</p>
+                </div>
+              </div>
+              
+              <div className="flex flex-wrap gap-2">
+                {project.members?.map(member => (
+                  <Link
+                    key={member.id}
+                    to={`/profile/${member.id}`}
+                    className="flex items-center px-3 py-1 bg-secondary rounded-full hover:bg-primary/20 transition-colors duration-200"
+                  >
+                    <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center mr-2">
+                      <Users className="h-4 w-4 text-primary-light" />
+                    </div>
+                    <span className="text-sm">{member.name}</span>
+                    <span className="text-xs text-gray-500 ml-2">{member.role}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
