@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter, Users, BookOpen } from 'lucide-react';
+import { Search, Users, BookOpen } from 'lucide-react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { toastStore } from '../components/ui/Toaster';
-import { indianColleges } from '../data/indianColleges';
 
 interface Project {
   id: string;
@@ -14,7 +13,6 @@ interface Project {
   skills: string[];
   teamSize: string;
   duration: string;
-  isCollegeOnly: boolean;
   isWomenLed: boolean;
   creatorName: string;
   creatorId: string;
@@ -27,13 +25,12 @@ const ProjectFeed = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filter, setFilter] = useState<'all' | 'college' | 'women'>('all');
-  const [selectedCollege, setSelectedCollege] = useState('');
+  const [filter, setFilter] = useState<'all' | 'women'>('all');
   const { currentUser } = useAuth();
 
   useEffect(() => {
     fetchProjects();
-  }, [filter, selectedCollege]);
+  }, [filter]);
 
   const fetchProjects = async () => {
     try {
@@ -41,14 +38,8 @@ const ProjectFeed = () => {
       let projectQuery = collection(db, 'projects');
       let constraints: any[] = [];
 
-      if (filter === 'college') {
-        constraints.push(where('isCollegeOnly', '==', true));
-      } else if (filter === 'women') {
+      if (filter === 'women') {
         constraints.push(where('isWomenLed', '==', true));
-      }
-
-      if (selectedCollege && selectedCollege !== 'All Colleges') {
-        constraints.push(where('college', '==', selectedCollege));
       }
 
       const q = constraints.length > 0 ? query(projectQuery, ...constraints) : query(projectQuery);
@@ -73,6 +64,10 @@ const ProjectFeed = () => {
     project.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     project.skills.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  const handleSearch = () => {
+    fetchProjects();
+  };
 
   return (
     <div className="py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -101,16 +96,12 @@ const ProjectFeed = () => {
             />
           </div>
 
-          <select
-            value={selectedCollege}
-            onChange={(e) => setSelectedCollege(e.target.value)}
-            className="input bg-secondary text-white border-gray-700 hover:border-primary-light focus:border-primary-light cursor-pointer"
+          <button
+            onClick={handleSearch}
+            className="btn btn-primary"
           >
-            <option value="">All Colleges</option>
-            {indianColleges.map(college => (
-              <option key={college} value={college}>{college}</option>
-            ))}
-          </select>
+            Search
+          </button>
 
           <div className="flex space-x-4">
             <button
@@ -118,12 +109,6 @@ const ProjectFeed = () => {
               className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
             >
               All Projects
-            </button>
-            <button
-              onClick={() => setFilter('college')}
-              className={`btn ${filter === 'college' ? 'btn-primary' : 'btn-secondary'}`}
-            >
-              College Only
             </button>
             <button
               onClick={() => setFilter('women')}
@@ -157,9 +142,6 @@ const ProjectFeed = () => {
                 <div className="flex space-x-2">
                   {project.isWomenLed && (
                     <span className="tag bg-pink-500/20 text-pink-400">Women-led</span>
-                  )}
-                  {project.isCollegeOnly && (
-                    <span className="tag bg-blue-500/20 text-blue-400">College</span>
                   )}
                 </div>
               </div>
