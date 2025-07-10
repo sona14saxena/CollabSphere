@@ -4,7 +4,10 @@
 
 @layer base {
   body {
-    @apply bg-background font-sans text-white;
+    @apply font-sans text-white;
+    background: linear-gradient(270deg, #080005, #000000, #000000, #000000);
+    background-size: 800% 800%;
+    animation: gradient-bg 20s ease infinite;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading font-bold;

@@ -3,17 +3,17 @@ import { getAuth, GithubAuthProvider, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
+
 // Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyCUJsf5WMlfwU9vHymKAzt24RVDBARG8ac",
-  authDomain: "collabsphere-4554f.firebaseapp.com",
-  databaseURL: "https://collabsphere-4554f-default-rtdb.firebaseio.com",
-  projectId: "collabsphere-4554f",
-  storageBucket: "collabsphere-4554f.firebasestorage.app",
-  messagingSenderId: "889492947340",
-  appId: "1:889492947340:web:0963bb4610986664cf96a9"
+  apiKey: "AIzaSyAVpMr9PhymYBprmyZO9eAZJZ5QEXwBp0Y",
+  authDomain: "collabsphere-bcee5.firebaseapp.com",
+  projectId: "collabsphere-bcee5",
+  storageBucket: "collabsphere-bcee5.firebasestorage.app",
+  messagingSenderId: "452926313704",
+  appId: "1:452926313704:web:261156d3c5d39f84f9e55d"
 };
+
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);

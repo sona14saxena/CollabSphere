@@ -18,11 +18,20 @@ export default {
       animation: {
         'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'grid-glow': 'grid-glow 8s infinite',
+        'gradient-bg': 'gradient-bg 15s ease infinite',
       },
       keyframes: {
         'grid-glow': {
           '0%, 100%': { opacity: 0.1 },
           '50%': { opacity: 0.2 },
+        },
+        'gradient-bg': {
+          '0%, 100%': {
+            'background-position': '0% 50%',
+          },
+          '50%': {
+            'background-position': '100% 50%',
+          },
         },
       },
       boxShadow: {
