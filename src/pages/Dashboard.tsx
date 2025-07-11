@@ -145,6 +145,52 @@ const Dashboard = () => {
             }`}
             onClick={() => setActiveTab('applications')}
           >
+            TaskTab
+            export default function TasksTab() {
+  const sampleTasks = [
+    { title: "Design team logo", progress: 100 },
+    { title: "Create database schema", progress: 60 },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {sampleTasks.map((task, idx) => (
+        <div key={idx}>
+          <p className="font-semibold">{task.title}</p>
+          <div className="w-full bg-gray-200 rounded">
+            <div
+              className="bg-primary-light h-2 rounded"
+              style={{ width: `${task.progress}%` }}
+            ></div>
+          </div>
+          <p className="text-xs text-gray-500">{task.progress}% complete</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+             ApplicationTab
+             export default function ApplicationsTab() {
+  const sampleApplications = [
+    { project: "Rain Water Harvesting", status: "Pending" },
+    { project: "AI Study Buddies", status: "Accepted" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {sampleApplications.map((app, idx) => (
+        <div key={idx} className="p-3 bg-blue-50 rounded shadow-sm">
+          <p><strong>Project:</strong> {app.project}</p>
+          <p><strong>Status:</strong> {app.status}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+           {activeTab === 'tasks' && <TasksTab />}
+{activeTab === 'applications' && <ApplicationsTab />}
+
+            
             Applications
           </button>
         </nav>
