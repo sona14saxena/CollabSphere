@@ -33,6 +33,14 @@ const Profile = () => {
   const [education, setEducation] = useState('');
   const [experience, setExperience] = useState('');
   const [college, setCollege] = useState('');
+  const [github, setGithub] = useState('');
+  const [linkedin, setLinkedin] = useState('');
+
+  // New states to handle connect input visibility and temp values
+  const [connectGithub, setConnectGithub] = useState(false);
+  const [connectLinkedin, setConnectLinkedin] = useState(false);
+  const [tempGithub, setTempGithub] = useState('');
+  const [tempLinkedin, setTempLinkedin] = useState('');
 
   const isOwnProfile = userId === currentUser?.uid;
 
@@ -57,6 +65,10 @@ const Profile = () => {
         setEducation(userData.education || '');
         setExperience(userData.experience || '');
         setCollege(userData.college || '');
+        setGithub(userData.github || '');
+        setLinkedin(userData.linkedin || '');
+        setTempGithub(userData.github || '');
+        setTempLinkedin(userData.linkedin || '');
       } else {
         // Fallback profile for demo
         setProfile({
@@ -67,7 +79,9 @@ const Profile = () => {
           skills: ['React', 'Node.js', 'Python'],
           education: 'Computer Science Student',
           experience: 'Full Stack Developer',
-          college: 'IIT Delhi'
+          college: 'IIT Delhi',
+          github: '',
+          linkedin: ''
         });
       }
     } catch (error) {
@@ -77,6 +91,7 @@ const Profile = () => {
       setLoading(false);
     }
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,6 +109,8 @@ const Profile = () => {
         education,
         experience,
         college,
+        github,
+        linkedin,
         email: currentUser?.email || ''
       }, { merge: true });
 
@@ -105,6 +122,7 @@ const Profile = () => {
       toastStore.addToast('Failed to update profile', 'error');
     }
   };
+
 
   if (loading) {
     return (
@@ -207,6 +225,28 @@ const Profile = () => {
                     value={college}
                     onChange={(e) => setCollege(e.target.value)}
                     className="input focus:border-primary-light focus:ring-primary-light/20"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">GitHub Profile URL</label>
+                  <input
+                    type="url"
+                    value={github}
+                    onChange={(e) => setGithub(e.target.value)}
+                    className="input focus:border-primary-light focus:ring-primary-light/20"
+                    placeholder="https://github.com/username"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">LinkedIn Profile URL</label>
+                  <input
+                    type="url"
+                    value={linkedin}
+                    onChange={(e) => setLinkedin(e.target.value)}
+                    className="input focus:border-primary-light focus:ring-primary-light/20"
+                    placeholder="https://linkedin.com/in/username"
                   />
                 </div>
                 
@@ -336,25 +376,113 @@ const Profile = () => {
               </h2>
               
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-secondary to-background-lighter rounded-lg border border-gray-700/50 hover:border-primary/30 transition-all duration-200">
-                  <div className="flex items-center">
-                    <GithubIcon className="h-6 w-6 mr-3" />
-                    <span>GitHub</span>
-                  </div>
-                  <button className="btn btn-secondary text-xs py-2 hover:scale-105 transition-transform duration-200">
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-secondary to-background-lighter rounded-lg border border-gray-700/50 hover:border-primary/30 transition-all duration-200">
+                <div className="flex items-center">
+                  <GithubIcon className="h-6 w-6 mr-3" />
+                  <span>GitHub</span>
+                </div>
+                {!connectGithub ? (
+                  <button
+                    className="btn btn-secondary text-xs py-2 hover:scale-105 transition-transform duration-200"
+                    onClick={() => {
+                      setConnectGithub(true);
+                      setTempGithub(github);
+                    }}
+                  >
                     Connect
                   </button>
-                </div>
-                
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-secondary to-background-lighter rounded-lg border border-gray-700/50 hover:border-primary/30 transition-all duration-200">
-                  <div className="flex items-center">
-                    <LinkedinIcon className="h-6 w-6 mr-3" />
-                    <span>LinkedIn</span>
+                ) : (
+                  <div className="flex space-x-2 items-center">
+                    <input
+                      type="url"
+                      value={tempGithub}
+                      onChange={(e) => setTempGithub(e.target.value)}
+                      placeholder="https://github.com/username"
+                      className="input input-sm w-60 focus:border-primary-light focus:ring-primary-light/20"
+                    />
+                    <button
+                      className="btn btn-primary text-xs py-2 hover:scale-105 transition-transform duration-200"
+                      onClick={async () => {
+                        try {
+                          const userRef = doc(db, 'users', currentUser?.uid || '');
+                          await setDoc(userRef, { github: tempGithub }, { merge: true });
+                          setGithub(tempGithub);
+                          setConnectGithub(false);
+                          toastStore.addToast('GitHub profile updated!', 'success');
+                        } catch (error) {
+                          console.error('Failed to update GitHub profile', error);
+                          toastStore.addToast('Failed to update GitHub profile', 'error');
+                        }
+                      }}
+                    >
+                      Save
+                    </button>
+                    <button
+                      className="btn btn-secondary text-xs py-2 hover:scale-105 transition-transform duration-200"
+                      onClick={() => {
+                        setConnectGithub(false);
+                        setTempGithub(github);
+                      }}
+                    >
+                      Cancel
+                    </button>
                   </div>
-                  <button className="btn btn-secondary text-xs py-2 hover:scale-105 transition-transform duration-200">
+                )}
+              </div>
+              
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-secondary to-background-lighter rounded-lg border border-gray-700/50 hover:border-primary/30 transition-all duration-200">
+                <div className="flex items-center">
+                  <LinkedinIcon className="h-6 w-6 mr-3" />
+                  <span>LinkedIn</span>
+                </div>
+                {!connectLinkedin ? (
+                  <button
+                    className="btn btn-secondary text-xs py-2 hover:scale-105 transition-transform duration-200"
+                    onClick={() => {
+                      setConnectLinkedin(true);
+                      setTempLinkedin(linkedin);
+                    }}
+                  >
                     Connect
                   </button>
-                </div>
+                ) : (
+                  <div className="flex space-x-2 items-center">
+                    <input
+                      type="url"
+                      value={tempLinkedin}
+                      onChange={(e) => setTempLinkedin(e.target.value)}
+                      placeholder="https://linkedin.com/in/username"
+                      className="input input-sm w-60 focus:border-primary-light focus:ring-primary-light/20"
+                    />
+                    <button
+                      className="btn btn-primary text-xs py-2 hover:scale-105 transition-transform duration-200"
+                      onClick={async () => {
+                        try {
+                          const userRef = doc(db, 'users', currentUser?.uid || '');
+                          await setDoc(userRef, { linkedin: tempLinkedin }, { merge: true });
+                          setLinkedin(tempLinkedin);
+                          setConnectLinkedin(false);
+                          toastStore.addToast('LinkedIn profile updated!', 'success');
+                        } catch (error) {
+                          console.error('Failed to update LinkedIn profile', error);
+                          toastStore.addToast('Failed to update LinkedIn profile', 'error');
+                        }
+                      }}
+                    >
+                      Save
+                    </button>
+                    <button
+                      className="btn btn-secondary text-xs py-2 hover:scale-105 transition-transform duration-200"
+                      onClick={() => {
+                        setConnectLinkedin(false);
+                        setTempLinkedin(linkedin);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
               </div>
             </div>
           )}
