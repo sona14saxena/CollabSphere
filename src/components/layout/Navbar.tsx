@@ -39,7 +39,7 @@ const Navbar = () => {
                 <Link to="/post-project" className="btn btn-primary text-sm">Post a Project</Link>
                 <div className="relative ml-3">
                   <div className="flex items-center">
-                    <Link to="/profile" className="flex items-center text-sm font-medium rounded-full hover:text-primary-light">
+                    <Link to={`/profile/${currentUser?.uid}`} className="flex items-center text-sm font-medium rounded-full hover:text-primary-light">
                       <UserIcon className="h-6 w-6 mr-1" />
                       <span className="hidden lg:inline">{currentUser.displayName || 'Profile'}</span>
                     </Link>
@@ -87,7 +87,8 @@ const Navbar = () => {
               <>
                 <Link to="/dashboard" className="block px-3 py-2 text-base font-medium hover:text-primary-light">Dashboard</Link>
                 <Link to="/post-project" className="block px-3 py-2 text-base font-medium hover:text-primary-light">Post a Project</Link>
-                <Link to="/profile" className="block px-3 py-2 text-base font-medium hover:text-primary-light">Profile</Link>
+                <Link to={`/profile/${currentUser?.uid}`} className="block px-3 py-2 text-base font-medium hover:text-primary-light">Profile</Link>
+
                 <button 
                   onClick={handleLogout}
                   className="block w-full text-left px-3 py-2 text-base font-medium text-gray-400 hover:text-white"
