@@ -9,7 +9,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyAVpMr9PhymYBprmyZO9eAZJZ5QEXwBp0Y",
   authDomain: "collabsphere-bcee5.firebaseapp.com",
   projectId: "collabsphere-bcee5",
-  storageBucket: "collabsphere-bcee5.firebasestorage.app",
+  storageBucket: "collabsphere-bcee5.appspot.com",
   messagingSenderId: "452926313704",
   appId: "1:452926313704:web:261156d3c5d39f84f9e55d"
 };
