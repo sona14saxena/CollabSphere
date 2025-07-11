@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { toastStore } from '../components/ui/Toaster';
 import { Users, Calendar, Clock, MessageSquare, UserPlus, ExternalLink, User, Check, Plus, ArrowLeft } from 'lucide-react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 interface Project {
@@ -24,6 +24,16 @@ interface Project {
   tasks: { id: number; title: string; completed: boolean; }[];
 }
 
+interface Application {
+  id: string;
+  userId: string;
+  name: string;
+  college: string;
+  message: string;
+  timestamp: string;
+  status?: 'pending' | 'accepted' | 'rejected';
+}
+
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { currentUser } = useAuth();
@@ -31,10 +41,25 @@ const ProjectDetail = () => {
   const [loading, setLoading] = useState(true);
   const [isApplying, setIsApplying] = useState(false);
   const [application, setApplication] = useState('');
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(false);
+
+  // Move isCreator and isMember above useEffect
+  const isCreator = currentUser && project && currentUser.uid === project.creatorId;
+  const isMember = currentUser && project && project.members?.some(member => member.id === currentUser.uid);
 
   useEffect(() => {
     fetchProject();
+    // eslint-disable-next-line
   }, [id]);
+
+  // Add a new useEffect to fetch applications only when project is loaded and user is creator
+  useEffect(() => {
+    if (project && currentUser && currentUser.uid === project.creatorId) {
+      fetchApplications();
+    }
+    // eslint-disable-next-line
+  }, [project, currentUser]);
 
   const fetchProject = async () => {
     try {
@@ -57,6 +82,33 @@ const ProjectDetail = () => {
     }
   };
 
+  const fetchApplications = async () => {
+    if (!id) return;
+    setApplicationsLoading(true);
+    try {
+      const appsRef = collection(db, 'projects', id, 'applications');
+      const appsSnap = await getDocs(appsRef);
+      const apps: Application[] = appsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() })) as Application[];
+      setApplications(apps);
+    } catch (error) {
+      toastStore.addToast('Failed to load applications', 'error');
+    } finally {
+      setApplicationsLoading(false);
+    }
+  };
+
+  const handleApplicationStatus = async (appId: string, newStatus: 'accepted' | 'rejected') => {
+    if (!id) return;
+    try {
+      const appRef = doc(db, 'projects', id, 'applications', appId);
+      await updateDoc(appRef, { status: newStatus });
+      setApplications(prev => prev.map(app => app.id === appId ? { ...app, status: newStatus } : app));
+      toastStore.addToast(`Application ${newStatus}`, 'success');
+    } catch (error) {
+      toastStore.addToast('Failed to update application status', 'error');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -76,9 +128,6 @@ const ProjectDetail = () => {
     );
   }
 
-  const isCreator = currentUser?.uid === project.creatorId;
-  const isMember = project.members?.some(member => member.id === currentUser?.uid);
-
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -87,11 +136,33 @@ const ProjectDetail = () => {
       return;
     }
     
+    if (!currentUser || !id) {
+      toastStore.addToast('You must be logged in to apply', 'error');
+      return;
+    }
+
     try {
-      // Here you would implement the application logic with Firebase
+      // Fetch applicant's college from profiles
+      const profileRef = doc(db, 'profiles', currentUser.uid);
+      const profileSnap = await getDoc(profileRef);
+      let college = '';
+      if (profileSnap.exists()) {
+        college = profileSnap.data().college || '';
+      }
+      // Save application to subcollection
+      const appsRef = collection(db, 'projects', id, 'applications');
+      await addDoc(appsRef, {
+        userId: currentUser.uid,
+        name: currentUser.displayName || '',
+        college,
+        message: application,
+        timestamp: new Date().toISOString(),
+      });
       toastStore.addToast('Application submitted successfully!', 'success');
       setIsApplying(false);
       setApplication('');
+      // Refresh applications if creator is viewing
+      if (project && currentUser.uid === project.creatorId) fetchApplications();
     } catch (error) {
       console.error('Error submitting application:', error);
       toastStore.addToast('Failed to submit application', 'error');
@@ -356,22 +427,57 @@ const ProjectDetail = () => {
           )}
           
           {isCreator && (
-            <div className="card border border-yellow-500/30 hover:shadow-glow-md transition-all duration-300">
-              <h2 className="text-xl font-bold mb-4 text-yellow-400 flex items-center">
-                <span className="h-2 w-2 bg-yellow-400 rounded-full mr-3 animate-pulse"></span>
+            <div className="card border border-yellow-500/30 hover:shadow-glow-md transition-all duration-300 mt-8">
+              <h2 className="text-xl font-bold mb-4 text-yellow-400 flex items-center gap-2">
+                <UserPlus className="h-5 w-5 text-yellow-400" />
                 Applicants
               </h2>
-              
-              <p className="text-gray-400 mb-4">
-                {project.applicants || 0} people have applied to join this project.
-              </p>
-              
-              <Link 
-                to="/dashboard" 
-                className="btn btn-secondary w-full hover:scale-105 transition-transform duration-200"
-              >
-                Review Applications
-              </Link>
+              {applicationsLoading ? (
+                <div className="text-gray-400">Loading applicants...</div>
+              ) : applications.length === 0 ? (
+                <div className="flex flex-col items-center py-8">
+                  <User className="h-10 w-10 text-gray-600 mb-2" />
+                  <p className="text-gray-400 mb-2">No one has applied to this project yet.</p>
+                  <p className="text-xs text-gray-500">Share your project to get more applicants!</p>
+                </div>
+              ) : (
+                <div className="space-y-4 mb-4">
+                  {applications.map(app => (
+                    <div key={app.id} className="p-4 rounded-lg bg-background-lighter border border-secondary/30 shadow flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="font-semibold text-primary-light text-lg flex items-center gap-2">
+                          <User className="h-4 w-4 text-primary-light" /> {app.name}
+                        </div>
+                        <div className="text-sm text-gray-400">{app.college}</div>
+                        <div className="text-sm text-gray-300 mt-1 italic">"{app.message}"</div>
+                        <div className="text-xs text-gray-500 mt-1">Applied: {new Date(app.timestamp).toLocaleString()}</div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2 min-w-[120px]">
+                        {app.status === 'accepted' && <span className="px-2 py-1 rounded bg-green-600/30 text-green-400 text-xs font-semibold">Accepted</span>}
+                        {app.status === 'rejected' && <span className="px-2 py-1 rounded bg-red-600/30 text-red-400 text-xs font-semibold">Rejected</span>}
+                        {(app.status === undefined || app.status === 'pending') && (
+                          <div className="flex gap-2">
+                            <button
+                              className="btn btn-primary btn-xs"
+                              disabled={app.status !== undefined && app.status !== 'pending'}
+                              onClick={() => handleApplicationStatus(app.id, 'accepted')}
+                            >
+                              Accept
+                            </button>
+                            <button
+                              className="btn btn-secondary btn-xs"
+                              disabled={app.status !== undefined && app.status !== 'pending'}
+                              onClick={() => handleApplicationStatus(app.id, 'rejected')}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
