@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Users, BookOpen } from 'lucide-react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { toastStore } from '../components/ui/Toaster';
@@ -25,12 +25,32 @@ const ProjectFeed = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filter, setFilter] = useState<'all' | 'women'>('all');
+  const [filter, setFilter] = useState<'all' | 'women' | 'myCollege'>('all');
   const { currentUser } = useAuth();
+  const [myCollege, setMyCollege] = useState<string>('');
+
+  useEffect(() => {
+    if (currentUser?.uid) {
+      fetchUserCollege(currentUser.uid);
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     fetchProjects();
-  }, [filter]);
+  }, [filter, myCollege]);
+
+  const fetchUserCollege = async (uid: string) => {
+    try {
+      const userRef = doc(db, 'users', uid);
+      const userDoc = await getDoc(userRef);
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setMyCollege(userData.college || '');
+      }
+    } catch (error) {
+      console.error('Error fetching user college:', error);
+    }
+  };
 
   const fetchProjects = async () => {
     try {
@@ -45,10 +65,30 @@ const ProjectFeed = () => {
       const q = constraints.length > 0 ? query(projectQuery, ...constraints) : query(projectQuery);
       const querySnapshot = await getDocs(q);
       
-      const projectData = querySnapshot.docs.map(doc => ({
+      let projectData = querySnapshot.docs.map((doc: any) => ({
         id: doc.id,
         ...doc.data()
       })) as Project[];
+
+      if (filter === 'myCollege' && myCollege) {
+        // Filter projects by owner's college
+        const filteredProjects: Project[] = [];
+        for (const project of projectData) {
+          try {
+            const userRef = doc(db, 'users', project.creatorId);
+            const userDoc = await getDoc(userRef);
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              if (userData.college === myCollege) {
+                filteredProjects.push(project);
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching project owner college:', error);
+          }
+        }
+        projectData = filteredProjects;
+      }
 
       setProjects(projectData);
     } catch (error) {
@@ -115,6 +155,14 @@ const ProjectFeed = () => {
               className={`btn ${filter === 'women' ? 'btn-primary' : 'btn-secondary'}`}
             >
               Women-Led
+            </button>
+            <button
+              onClick={() => setFilter('myCollege')}
+              className={`btn ${filter === 'myCollege' ? 'btn-primary' : 'btn-secondary'}`}
+              disabled={!myCollege}
+              title={!myCollege ? 'Set your college in profile to enable' : ''}
+            >
+              My College
             </button>
           </div>
         </div>

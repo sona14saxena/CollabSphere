@@ -6,6 +6,7 @@ import { toastStore } from '../components/ui/Toaster';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { Link } from 'react-router-dom';
+import { indianColleges } from '../data/indianColleges';
 
 interface UserProfile {
   uid: string;
@@ -220,12 +221,16 @@ const Profile = () => {
                 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-300 mb-1">College</label>
-                  <input
-                    type="text"
+                  <select
                     value={college}
                     onChange={(e) => setCollege(e.target.value)}
                     className="input focus:border-primary-light focus:ring-primary-light/20"
-                  />
+                  >
+                    <option value="">Select your college</option>
+                    {indianColleges.map((col, index) => (
+                      <option key={index} value={col}>{col}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="mb-4">
